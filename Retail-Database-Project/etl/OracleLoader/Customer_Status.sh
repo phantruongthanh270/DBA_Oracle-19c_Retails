@@ -1,0 +1,1 @@
+sqlldr CONTROL=Customer_Status.ctl   skip=1   

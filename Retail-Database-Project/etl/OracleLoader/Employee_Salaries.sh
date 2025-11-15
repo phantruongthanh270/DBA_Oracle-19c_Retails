@@ -1,0 +1,1 @@
+sqlldr CONTROL=Employee_Salaries.ctl   skip=1   

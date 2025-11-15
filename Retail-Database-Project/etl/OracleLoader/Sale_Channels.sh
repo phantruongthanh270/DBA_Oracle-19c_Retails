@@ -1,0 +1,1 @@
+sqlldr CONTROL=Sale_Channels.ctl   skip=1   

@@ -1,0 +1,1 @@
+sqlldr CONTROL=Customer_Types.ctl   skip=1   

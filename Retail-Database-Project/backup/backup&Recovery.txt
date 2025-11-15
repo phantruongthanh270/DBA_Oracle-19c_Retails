@@ -1,0 +1,121 @@
+--Tọa folder
+sudo mkdir -p /u01/backup/rman
+sudo chown oracle:dba /u01/backup/rman
+chmod 750 /u01/backup/rman
+
+
+
+--Cấu hình FRA
+ALTER SYSTEM SET db_recovery_file_dest='/u01/app/oracle/recovery_area';
+ALTER SYSTEM SET db_recovery_file_dest_size=200G;
+
+
+
+--rman
+rman target /
+
+CONFIGURE RETENTION POLICY TO RECOVERY WINDOW OF 7 DAYS;
+CONFIGURE CONTROLFILE AUTOBACKUP ON;
+CONFIGURE DEVICE TYPE DISK PARALLELISM 4;
+CONFIGURE COMPRESSION ALGORITHM 'MEDIUM';
+CONFIGURE BACKUP OPTIMIZATION ON;
+CONFIGURE CHANNEL DEVICE TYPE DISK FORMAT '/u01/backup/rman/%d_%U';
+
+
+
+--/home/oracle/scripts/rman_full_weekly.sh
+#!/bin/bash
+. /home/oracle/.bash_profile
+
+export ORACLE_SID=orcl
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1
+export PATH=$ORACLE_HOME/bin:$PATH
+
+rman target / <<'RMAN_EOF'
+RUN {
+  ALLOCATE CHANNEL c1 DEVICE TYPE DISK FORMAT '/u01/backup/rman/%d_FULL_%U';
+  ALLOCATE CHANNEL c2 DEVICE TYPE DISK FORMAT '/u01/backup/rman/%d_FULL_%U';
+  BACKUP AS COMPRESSED BACKUPSET INCREMENTAL LEVEL 0 DATABASE
+    FORMAT '/u01/backup/rman/%d_FULL_%U';
+  BACKUP AS COMPRESSED BACKUPSET CURRENT CONTROLFILE;
+  SQL 'ALTER SYSTEM ARCHIVE LOG CURRENT';
+  BACKUP AS COMPRESSED BACKUPSET ARCHIVELOG ALL DELETE INPUT;
+  RELEASE CHANNEL c1;
+  RELEASE CHANNEL c2;
+}
+RMAN_EOF
+
+
+
+--/home/oracle/scripts/rman_inc_daily.sh
+#!/bin/bash
+. /home/oracle/.bash_profile
+
+export ORACLE_SID=orcl
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1
+export PATH=$ORACLE_HOME/bin:$PATH
+
+rman target / <<'RMAN_EOF'
+RUN {
+  ALLOCATE CHANNEL c1 DEVICE TYPE DISK FORMAT '/u01/backup/rman/%d_INC_%U';
+  BACKUP AS COMPRESSED BACKUPSET INCREMENTAL LEVEL 1 DATABASE;
+  BACKUP AS COMPRESSED BACKUPSET ARCHIVELOG ALL DELETE INPUT;
+  RELEASE CHANNEL c1;
+}
+RMAN_EOF
+
+
+
+--/home/oracle/scripts/rman_arch_hourly.sh
+#!/bin/bash
+. /home/oracle/.bash_profile
+
+export ORACLE_SID=orcl
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1
+export PATH=$ORACLE_HOME/bin:$PATH
+
+rman target / <<'RMAN_EOF'
+BACKUP AS COMPRESSED BACKUPSET ARCHIVELOG ALL DELETE INPUT;
+RMAN_EOF
+
+
+
+--/home/oracle/scripts/rman_maint.sh
+#!/bin/bash
+. /home/oracle/.bash_profile
+
+export ORACLE_SID=orcl
+export ORACLE_HOME=/u01/app/oracle/product/19.0.0/dbhome_1
+export PATH=$ORACLE_HOME/bin:$PATH
+
+rman target / <<'RMAN_EOF'
+CROSSCHECK BACKUP;
+DELETE NOPROMPT EXPIRED BACKUP;
+DELETE NOPROMPT OBSOLETE;
+REPORT OBSOLETE;
+RMAN_EOF
+
+
+
+--Cấp quyên thực thi
+chmod +x /home/oracle/scripts/*.sh
+
+
+
+--crontab -e
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/u01/app/oracle/product/19.0.0/dbhome_1/bin
+
+# Full backup vào Chủ nhật 03:00
+0 2 * * 0 /home/oracle/scripts/rman_full_weekly.sh >> /var/log/rman_full.log 2>&1
+
+# Incremental mỗi ngày 03:00 (trừ Chủ nhật đã full)
+0 3 * * 1-6 /home/oracle/scripts/rman_inc_daily.sh >> /var/log/rman_inc.log 2>&1
+
+# Backup archivelog mỗi 30 phút
+*/30 * * * * /home/oracle/scripts/rman_arch_hourly.sh >> /var/log/rman_arch.log 2>&1
+
+# Crosscheck hàng ngày 03:30
+30 3 * * * /home/oracle/scripts/rman_maint.sh >> /var/log/rman_maint.log 2>&1
+
+

@@ -1,0 +1,12 @@
+-- 1. Orders
+CREATE INDEX IDX_ORDERS_CUSTOMER_DATE ON Orders(CustomerID, OrderDate DESC) LOCAL TABLESPACE index_ts;
+CREATE INDEX IDX_ORDERS_BRANCH_DATE ON Orders(BranchID, OrderDate) LOCAL TABLESPACE index_ts;
+
+-- 2. Order_Details
+CREATE INDEX IDX_ORDER_DETAILS_ORDER  ON Order_Details(OrderID) LOCAL TABLESPACE index_ts;
+
+-- 3. Order_Invoices
+CREATE INDEX IDX_ORDER_INVOICES_ORDER ON Order_Invoices(OrderID) TABLESPACE index_ts;
+
+-- 4. Payments
+CREATE INDEX IDX_PAYMENTS_INVOICE_DATE ON Payments(InvoiceID, PaymentDate) LOCAL TABLESPACE index_ts;

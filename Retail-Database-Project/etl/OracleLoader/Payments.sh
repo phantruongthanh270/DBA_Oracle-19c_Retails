@@ -1,0 +1,1 @@
+sqlldr CONTROL=Payments.ctl   skip=1   

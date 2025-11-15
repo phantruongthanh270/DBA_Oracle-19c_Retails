@@ -1,0 +1,1 @@
+sqlldr CONTROL=Product_Prices.ctl   skip=1   

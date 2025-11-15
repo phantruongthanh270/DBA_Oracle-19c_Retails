@@ -1,0 +1,1 @@
+sqlldr CONTROL=Employee_Types.ctl   skip=1   

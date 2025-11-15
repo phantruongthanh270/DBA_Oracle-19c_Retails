@@ -1,0 +1,1 @@
+sqlldr CONTROL=Product_Status.ctl   skip=1   

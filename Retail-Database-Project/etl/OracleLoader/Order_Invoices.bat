@@ -1,0 +1,1 @@
+sqlldr CONTROL=Order_Invoices.ctl   skip=1   

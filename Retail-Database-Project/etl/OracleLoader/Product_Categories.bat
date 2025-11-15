@@ -1,0 +1,1 @@
+sqlldr CONTROL=Product_Categories.ctl   skip=1   

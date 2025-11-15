@@ -1,0 +1,1 @@
+sqlldr CONTROL=Invoice_Status.ctl   skip=1   

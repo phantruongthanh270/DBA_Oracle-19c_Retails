@@ -1,0 +1,1 @@
+sqlldr CONTROL=Branch_Status.ctl   skip=1   

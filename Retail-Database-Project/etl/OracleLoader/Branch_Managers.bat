@@ -1,0 +1,1 @@
+sqlldr CONTROL=Branch_Managers.ctl   skip=1   

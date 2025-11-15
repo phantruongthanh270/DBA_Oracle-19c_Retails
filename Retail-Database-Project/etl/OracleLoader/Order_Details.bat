@@ -1,0 +1,1 @@
+sqlldr CONTROL=Order_Details.ctl   skip=1   

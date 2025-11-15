@@ -1,0 +1,1 @@
+sqlldr CONTROL=Employee_Status.ctl   skip=1   
