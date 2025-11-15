@@ -35,7 +35,7 @@ Cấu trúc gồm 3 lớp chính:
 2. **Operational Database (Retail DB)** – nơi lưu trữ dữ liệu chuẩn hóa (3NF), phục vụ nghiệp vụ bán hàng, khách hàng, nhân viên, đơn hàng, hóa đơn.  
 3. **Analytical Layer (tùy chọn trong giai đoạn mở rộng)** – có thể trích xuất dữ liệu từ Retail DB sang Data Warehouse/BI sau này.
 
-```mermaid
+```
 flowchart LR
     A[Source Data (CSV, API, Faker)] --> B[Operational Retail Database (Oracle)]
     B --> C[Future: Data Warehouse / BI Tools]
