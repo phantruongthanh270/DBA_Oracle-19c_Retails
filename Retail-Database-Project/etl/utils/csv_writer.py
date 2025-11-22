@@ -1,7 +1,7 @@
 import csv
 import os
 
-def write_csv(file_path, fieldnames, data_rows):
+def write_csv(file_path, fieldnames, data_rows, append=False):
     """Ghi dữ liệu ra file CSV."""
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, mode='w', newline="", encoding='utf-8') as file:
@@ -41,4 +41,4 @@ def validate_csv(file_path, expected_fieldnames, check_empty=False):
                 print(f"[WARN] Dòng {i} chứa giá trị trống: {row}")
 
     print(f"[VALID] File {file_path} hợp lệ ({len(expected_fieldnames)} cột).")
-    return True
+    return {"valid": True, "errors": []}

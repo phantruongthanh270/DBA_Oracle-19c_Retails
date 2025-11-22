@@ -1,1 +1,0 @@
-sqlldr CONTROL=Sale_Staffs.ctl   skip=1   

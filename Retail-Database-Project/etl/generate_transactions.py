@@ -8,7 +8,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from utils.csv_writer import write_csv
 from utils.id_tracker import load_ids, save_ids
-from utils.entity_tracker import save_entities , load_entities
 
 fake = Faker("vi_VN")
 
@@ -43,29 +42,52 @@ def chunkify(lst, n):
 # 🛒 ORDERS
 # ============================================================
 
-def generate_orders_chunk(chunk_ids, customer_ids, branch_ids, order_statuses):
+def generate_orders_chunk(chunk_ids, customer_ids, branch_ids, branch_employees, channel_ids, order_statuses):
     data = []
+
+    # Tạo mapping BranchID → list EmployeeID
+    branch_to_employees = {}
+    for beid, info in branch_employees.items():
+        b = info.get("BranchID")
+        emp = info.get("EmployeeID")
+        if b and emp:
+            branch_to_employees.setdefault(b, []).append(emp)
+
     for oid in chunk_ids:
         order_date = fake.date_time_between(start_date="-1y", end_date="now")
         status = random.choices(order_statuses, weights=[0.2, 0.5, 0.2, 0.1])[0]
+
         cust_id = random.choice(customer_ids)
         branch_id = random.choice(branch_ids)
+
+        # 🔥 Chọn EmployeeID theo đúng chi nhánh
+        if branch_id not in branch_to_employees:
+            continue  # không có nhân viên ở chi nhánh → bỏ đơn này
+
+        employee_id = random.choice(branch_to_employees[branch_id])
+
+        # 🔥 Chọn kênh bán hàng
+        sale_channel_id = random.choice(channel_ids)
+
         data.append({
             "OrderID": oid,
             "CustomerID": cust_id,
             "BranchID": branch_id,
+            "EmployeeID": employee_id,
+            "SaleChannelID": sale_channel_id,
             "OrderDate": order_date.strftime("%Y-%m-%d %H:%M:%S"),
             "StatusID": status,
             "TotalAmount": 0.0,
         })
     return data
 
-
 def generate_orders():
-    ensure_entities_exist(["Customers", "Branches", "Order_Status"])
+    ensure_entities_exist(["Customers", "Branches", "Branch_Employees", "Sale_Channels", "Order_Status"])
 
     customer_ids = load_ids("Customers")
     branch_ids = load_ids("Branches")
+    branch_employees = load_ids("Branch_Employees")  
+    channel_ids = load_ids("Sale_Channels")           
     order_statuses = load_ids("Order_Status")
 
     all_order_ids = list(range(1, NUM_ORDERS + 1))
@@ -73,24 +95,29 @@ def generate_orders():
 
     results = []
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = [ex.submit(generate_orders_chunk, c, customer_ids, branch_ids, order_statuses) for c in chunks]
+        futures = [
+            ex.submit(
+                generate_orders_chunk,
+                c, customer_ids, branch_ids, branch_employees, channel_ids, order_statuses
+            )
+            for c in chunks
+        ]
         for f in as_completed(futures):
             results.extend(f.result())
 
-    # Lưu ID như cũ
+    # Lưu ID
     save_ids("Orders", all_order_ids)
 
-    # 🔥 Lưu metadata dạng {OrderID: {"OrderID": ..., "BranchID": ...}}
+    # Lưu metadata OrderID
     order_entities = {
         str(r["OrderID"]): {
-            "OrderID": r["OrderID"],
-            "BranchID": r["BranchID"]
+            "OrderID": r["OrderID"]
         }
         for r in results
     }
     save_entities("Orders", order_entities)
 
-    # Xuất CSV
+    # Ghi CSV
     write_csv(os.path.join(OUTPUT_DIR, "Orders.csv"), list(results[0].keys()), results)
     print(f"[OK] Orders ({len(results):,} hàng)")
 
@@ -240,84 +267,6 @@ def generate_order_invoices():
 
 
 # ============================================================
-# 🧍 SALES STAFFS
-# ============================================================
-
-def generate_sale_staffs():
-    ensure_entities_exist(["Orders", "Branch_Employees", "Sale_Channels"])
-
-    # === 🔹 Đọc dữ liệu ===
-    orders = load_ids("Orders")
-    branch_employees = load_ids("Branch_Employees")
-    channel_ids = load_ids("Sale_Channels")
-
-    if not orders or not branch_employees:
-        print("[WARN] Không có Orders hoặc Branch_Employees để sinh Sales_Staffs.")
-        return
-
-    # === 🔹 Tạo mapping BranchID → [ {BranchEmployeeID, EmployeeID}, ... ] ===
-    branch_to_employees = {}
-    for beid, info in branch_employees.items():
-        branch_id = info.get("BranchID")
-        emp_id = info.get("EmployeeID")
-        if branch_id and emp_id:
-            branch_to_employees.setdefault(branch_id, []).append({
-                "BranchEmployeeID": beid,
-                "EmployeeID": emp_id
-            })
-
-    data = []
-    sid = 1
-
-    # === 🔹 Chuẩn hóa Orders: lấy OrderID và BranchID ===
-    order_items = []
-
-    # Trường hợp orders là dict {OrderID: {..., BranchID: x}}
-    if isinstance(orders, dict):
-        for oid, info in orders.items():
-            branch_id = info.get("BranchID")
-            if branch_id:  # chỉ lấy khi có chi nhánh
-                order_items.append((oid, branch_id))
-    else:
-        print("[WARN] Orders không chứa thông tin BranchID hợp lệ, bỏ qua.")
-        return
-
-    # === 🔹 Sinh dữ liệu Sales_Staffs ===
-    for oid, branch_id in order_items:
-        # Chỉ lấy nhân viên thuộc chi nhánh đó
-        if branch_id not in branch_to_employees:
-            continue
-
-        emp_info = random.choice(branch_to_employees[branch_id])
-
-        shipped_date = fake.date_time_between(start_date="-1y", end_date="now")
-        delivery_date = shipped_date + timedelta(days=random.randint(1, 7))
-
-        data.append({
-            "SaleStaffID": sid,
-            "OrderID": oid,
-            "EmployeeID": emp_info["EmployeeID"],
-            "ChannelID": random.choice(channel_ids),
-            "ShippedDate": shipped_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "DeliveryDate": delivery_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "Status": random.choice(["Pending", "Shipped", "Delivered", "Cancelled"])
-        })
-        sid += 1
-
-    # === 🔹 Ghi dữ liệu ===
-    if data:
-        save_ids("Sale_Staffs", list(range(1, sid)))
-        write_csv(
-            os.path.join(OUTPUT_DIR, "Sale_Staffs.csv"),
-            list(data[0].keys()),
-            data
-        )
-        print(f"[OK] Sale_Staffs ({len(data):,} hàng) — dữ liệu hợp lệ với Orders & Branch_Employees.")
-    else:
-        print("[WARN] Không thể sinh Sale_Staffs — không tìm thấy chi nhánh hợp lệ hoặc nhân viên.")
-
-
-# ============================================================
 # 🚀 Update TotalAmount in Order
 # ============================================================
 
@@ -463,7 +412,6 @@ def main():
     generate_invoices()
     generate_payments()
     generate_order_invoices()
-    generate_sale_staffs()
     update_order_totals()
     update_invoice_totals()
     update_payment_totals()

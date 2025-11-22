@@ -8,10 +8,13 @@ into table ORDERS
 fields terminated by ','
 OPTIONALLY ENCLOSED BY '"' AND '"'
 trailing nullcols
-           ( ORDERID,
+           ( 
+             ORDERID,
              CUSTOMERID,
              BRANCHID,
-             ORDERDATE DATE "YYYY-MM-DD:HH24:MI:SS",
+             EmployeeID,
+             ChannelID,
+             ORDERDATE DATE "YYYY-MM-DD HH24:MI:SS",
              STATUSID,
-             TOTALAMOUNT
+             TOTALAMOUNT 
            )

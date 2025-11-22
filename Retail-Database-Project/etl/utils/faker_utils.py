@@ -17,7 +17,8 @@ def random_date(start_year=2015, end_year=2025, as_date=True):
 
 def random_phone():
     """Sinh số điện thoại Việt Nam hợp lệ."""
-    return f"+84{random.randint(100000000, 999999999)}"
+    prefixes = ["09", "03", "07", "08", "05"]
+    return f"{random.choice(prefixes)}{random.randint(10000000, 99999999)}"
 
 def normalize_text(text):
     """Loại bỏ dấu tiếng Việt và ký tự đặc biệt."""
